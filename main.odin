@@ -29,11 +29,17 @@ PUSHC :: 0x0D;
 POPR  :: 0x0E;
 POP   :: 0x0F;
 
-cpu_new :: proc() -> ^CPU {
-	cpu := new(CPU);
-	
-	return cpu;
-}
+/*
+
+INCR  - INC rr
+
+JMPRR - JMP rr:rc
+JMPREL - JMP +-rr
+JMPC - JMP c:d
+CALLRR - CALL rr:rc
+CALLC  - CALL c:d
+
+*/
 
 cpu_cycle :: proc(using cpu: ^CPU) {
 	op := mem[pc];
@@ -89,10 +95,26 @@ cpu_cycle :: proc(using cpu: ^CPU) {
 			}
 		}
 		case SUBRC: {
-			
+			r := mem[pc];
+			pc++;
+			c := mem[pc];
+			pc++;
+
+			reg[r] -= c;
+			if verbose {
+				fmt.printf("SUBRC - r%x -= %X\n", r, c);
+			}
 		}
 		case SUBRR: {
-			
+			r := mem[pc];
+			pc++;
+			c := mem[pc];
+			pc++;
+
+			reg[r] -= reg[c];
+			if verbose {
+				fmt.printf("SUBRR - r%x -= r%x\n", r, c);
+			}
 		}
 		case HLT: {
 			hlt = true;
@@ -131,17 +153,31 @@ cpu_dump :: proc(using cpu: ^CPU) {
 	fmt.printf("r%x = 0x%X\tr%x = 0x%X\tr%x = 0x%X\tr%x = 0x%X\n", 3, reg[3], 7, reg[7], 11, reg[11], 15, reg[15]);
 }
 
+add_byte :: proc(using cpu: ^CPU, b: u8) {
+	mem[pc] = b;
+	pc++;
+}
+
 main :: proc() {
-	cpu := cpu_new();
+	cpu := new(CPU);
 	cpu.verbose = true;
 
-	cpu.mem[0] = LDRC;
-	cpu.mem[1] = 0;
-	cpu.mem[2] = 127;
-	cpu.mem[3] = LDRR;
-	cpu.mem[4] = 1;
-	cpu.mem[5] = 0;
-	cpu.mem[6] = HLT;
+	add_byte(cpu, LDRC);
+	add_byte(cpu, 0);
+	add_byte(cpu, 127);
+	add_byte(cpu, LDRR);
+	add_byte(cpu, 1);
+	add_byte(cpu, 0);
+
+	add_byte(cpu, SUBRC);
+	add_byte(cpu, 1);
+	add_byte(cpu, 0xf);
+	add_byte(cpu, SUBRR);
+	add_byte(cpu, 0);
+	add_byte(cpu, 1);
+
+	add_byte(cpu, HLT);
+	cpu.pc = 0;
 
 	for {
 		cpu_cycle(cpu);
