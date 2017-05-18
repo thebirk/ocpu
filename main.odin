@@ -12,17 +12,19 @@ CPU :: struct {
 	verbose: bool,
 }
 
-NOP   :: 0x00;
-LDRC  :: 0x01;
-LDRR  :: 0x02;
-ADDRC :: 0x03;
-ADDRR :: 0x04;
-SUBRC :: 0x05;
-SUBRR :: 0x06;
-LDSPC :: 0x07;
-LDSPR :: 0x08;
+NOP    :: 0x00;
+LDRC   :: 0x01;
+LDRR   :: 0x02;
+ADDRC  :: 0x03;
+ADDRR  :: 0x04;
+SUBRC  :: 0x05;
+SUBRR  :: 0x06;
+LDSPCC :: 0x07;
+LDSPRR :: 0x08;
+
 LDSBC :: 0x09;
 LDSBR :: 0x0A;
+
 HLT   :: 0x0B;
 PUSHR :: 0x0C;
 PUSHC :: 0x0D;
@@ -123,18 +125,64 @@ cpu_cycle :: proc(using cpu: ^CPU) {
 			}
 		}
 		case PUSHR: {
-			
+			r := mem[pc];
+			pc++;
+			mem[sp] = reg[r];
+			sp--;
+
+			if verbose {
+				fmt.printf("PUSHR - r%x\n", r);
+			}
 		}
 		case PUSHC: {
-			
+			c := mem[pc];
+			pc++;
+			mem[sp] = c;
+			sp--;
+
+			if verbose {
+				fmt.printf("PUSHC - %X\n", c);
+			}
 		}
 		case POPR: {
-			
+			r := mem[pc];
+			pc++;
+			sp++;
+			reg[r] = mem[sp];
+
+			if verbose {
+				fmt.printf("POPR - r%x\n", r);
+			}
 		}
 		case POP: {
-			
+			sp++;
+			if verbose {
+				fmt.println("POP");
+			}
 		}
-		
+		case LDSPRR: {
+			r := mem[pc];
+			pc++;
+			c := mem[pc];
+			pc++;
+			
+			sp = u16(reg[r] << 8 | reg[c]);
+
+			if verbose {
+				fmt.printf("LDSPR - sp = r%x:r%x\n", r, c);
+			}
+		}
+		case LDSPCC: {
+			c := u16(mem[pc]);
+			pc++;
+			d := u16(mem[pc]);
+			pc++;
+			sp = c << 8 | d;
+
+			if verbose {
+				fmt.printf("LDSPC - sp = %X:%X\n", c, d);
+			}
+		}
 	}
 }
 
@@ -158,6 +206,9 @@ add_byte :: proc(using cpu: ^CPU, b: u8) {
 	pc++;
 }
 
+#foreign_system_library libgetch "getch";
+getch:: proc() -> int #foreign libgetch;
+
 main :: proc() {
 	cpu := new(CPU);
 	cpu.verbose = true;
@@ -176,6 +227,20 @@ main :: proc() {
 	add_byte(cpu, 0);
 	add_byte(cpu, 1);
 
+	add_byte(cpu, LDSPCC);
+	add_byte(cpu, 0xF0);
+	add_byte(cpu, 0x00);
+
+	add_byte(cpu, PUSHR);
+	add_byte(cpu, 1);
+	add_byte(cpu, PUSHC);
+	add_byte(cpu, 0xDD);
+	
+	add_byte(cpu, POPR);
+	add_byte(cpu, 2);
+	add_byte(cpu, POPR);
+	add_byte(cpu, 3);
+
 	add_byte(cpu, HLT);
 	cpu.pc = 0;
 
@@ -184,6 +249,7 @@ main :: proc() {
 		if cpu.hlt {
 			break;
 		}
+		getch();
 	}
 
 	cpu_dump(cpu);
