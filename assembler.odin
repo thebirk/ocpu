@@ -26,7 +26,7 @@ OperandType :: enum {
 	Label,      // 
 }
 
-Opcode :: struct 6
+Opcode :: struct {
 	name: string,
 	opcode: byte,
 	operands: []OperandType,
